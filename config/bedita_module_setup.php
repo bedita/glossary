@@ -39,7 +39,7 @@ $moduleSetup = array(
 	"version" => "0.1",
 	"BEditaVersion" => "3.1",
 	"description" => "Glossary Module",
-	"BeditaObjects" => array("DefinitionTerm") 
+	"BEditaObjects" => array("DefinitionTerm") 
 
 );
 
