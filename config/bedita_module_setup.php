@@ -37,7 +37,7 @@ $moduleSetup = array(
 	"website" => "http://www.bedita.com",
 	"emailAddress" => "info@bedita.com",
 	"version" => "0.1",
-	"BEditaVersion" => "3.1",
+	"BEditaMinVersion" => "3.1",
 	"description" => "Glossary Module",
 	"BEditaObjects" => array("DefinitionTerm") 
 
