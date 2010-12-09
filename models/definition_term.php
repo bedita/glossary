@@ -33,5 +33,7 @@ class DefinitionTerm extends BeditaObjectModel {
 			
 	public $objectTypesGroups = array("leafs", "related");
 
+	public $actsAs = array();
+
 }
 ?>
