@@ -31,7 +31,7 @@
  */
 class GlossaryController extends ModulesController {
 	
-	public $uses = array("DefinitionTerm");
+	public $uses = array("DefinitionTerm","Category");
 	var $helpers 	= array('BeTree', 'BeToolbar');
 	
 	protected $moduleName = 'glossary';
@@ -41,6 +41,7 @@ class GlossaryController extends ModulesController {
 		$filter["object_type_id"] = array($conf->objectTypes['definition_term']["id"]);
 		$filter["count_annotation"] = array("Comment","EditorNote");
 		$this->paginatedList($id, $filter, $order, $dir, $page, $dim);
+		$this->loadCategories($filter["object_type_id"]);
 	}
 	
 	public function view($id = null) {
