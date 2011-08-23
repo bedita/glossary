@@ -137,6 +137,14 @@ class GlossaryController extends ModulesController {
 			"changeStatusObjects"	=> 	array(
 							"OK"	=> $this->referer(),
 							"ERROR"	=> $this->referer() 
+							),
+			"assocCategory"	=> 	array(
+							"OK"	=> $this->referer(),
+							"ERROR"	=> $this->referer() 
+							),
+			"disassocCategory"	=> 	array(
+							"OK"	=> $this->referer(),
+							"ERROR"	=> $this->referer() 
 							)
 		);
 		if(isset($REDIRECT[$action][$esito])) return $REDIRECT[$action][$esito] ;
