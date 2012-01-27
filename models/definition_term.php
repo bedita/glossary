@@ -35,5 +35,43 @@ class DefinitionTerm extends BeditaObjectModel {
 
 	public $actsAs = array();
 
+	/**
+	 * find a glossary definition term by word
+	 * try to find the lowercased word and eventually the singular or plural
+	 * 
+	 * @param string $word word to look for
+	 * @param array $options
+	 *				'conditions' => CakePHP conditions used in Model::find()
+	 *				'exactMatch' => true to search the exact word lowercased
+	 *								false or empty [default] to search eventually singular or plural of the searched word
+	 * @return mixed
+	 */
+	public function findByWord($word, $options = array()) {
+		$title = strtolower($word);
+		$exactMatch = (!empty($options['exactMatch']))? true : false;
+		if (!empty($options['conditions'])) {
+			$conditions = $options['conditions'];
+		}
+		$conditions['BEObject.object_type_id'] = Configure::read("objectTypes.definition_term.id");
+		array_push($conditions, 'lower(BEObject.title) = \'' . $title . '\'');
+		$definitionTerm = $this->find('first', array(
+			'conditions' =>	$conditions
+		));
+		
+		// if no result found through out exact match try to find singular or plural
+		if (empty($definitionTerm) && !$exactMatch) {
+			$titleSingular = Inflector::singularize($title);
+			$titlePlural = Inflector::pluralize($title);
+			$title = ($title == $titleSingular)? $titlePlural : $titleSingular;
+			array_pop($conditions);
+			array_push($conditions, 'lower(BEObject.title) = \'' . $title . '\'');
+			$definitionTerm = $this->find('first', array(
+				'conditions' =>	$conditions
+			));
+		}
+		
+		return $definitionTerm;
+	}
+	
 }
 ?>
