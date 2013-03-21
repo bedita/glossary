@@ -8,6 +8,10 @@
 	{$javascript->link("wymeditor/jquery.wymeditor.pack", false)}
 	{$javascript->link("wymeditor/wymeditor_default_init", false)}
 
+{else}
+
+	{$view->element('texteditor')}
+
 {/if}
 
 
@@ -24,7 +28,7 @@
 	<br />
 	<label>{t}description{/t}:</label>
 	<br />
-	<textarea class="mce subtitle" style="height:280px" name="data[description]">{$object.description|default:''|escape:'html'}</textarea>
+	<textarea class="mceSimple subtitle" style="height:280px" name="data[description]">{$object.description|default:''|escape:'html'}</textarea>
 	
 
 
