@@ -17,6 +17,7 @@ Menu a SX valido per tutte le pagine del controller.
 		<li {if $method eq 'categories'}class="on"{/if}>{$tr->link('Categories', '/glossary/categories')}</li>
 		{if $module_modify eq '1'}
 		<li><a href="{$html->url('/glossary/view')}">{t}Create new glossary term{/t}</a></li>
+		<li {if $method eq 'import'}class="on"{/if}><a href="{$html->url('/glossary/import')}">{t}Import many glossary terms{/t}</a></li>
 		{/if}
 	</ul>
 

@@ -6,7 +6,7 @@ Menu a SX valido per tutte le pagine del controller.
 {$view->set("method", $method)}
 <div class="secondacolonna {if !empty($fixed)}fixed{/if}">
 	
-	{if !empty($method) && $method != "index"}
+	{if !empty($method) && $method == "view"}
 		{assign var="back" value=$session->read("backFromView")}
 	{else}
 		{assign_concat var="back" 1=$html->url('/') 2=$currentModule.url}
@@ -17,7 +17,7 @@ Menu a SX valido per tutte le pagine del controller.
 	</div> 
 	
 	
-	{if !empty($method) && $method != "index"}
+	{if !empty($method) && $method == "view"}
 	<div class="insidecol">
 		<input class="bemaincommands" type="button" value=" {t}Save{/t} " name="save" id="saveBEObject" />
 		<input class="bemaincommands" type="button" value=" {t}clone{/t} " name="clone" id="cloneBEObject" />

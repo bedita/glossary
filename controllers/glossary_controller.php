@@ -33,6 +33,8 @@ class GlossaryController extends ModulesController {
 	
 	public $uses = array("DefinitionTerm","Category");
 	var $helpers 	= array('BeTree', 'BeToolbar');
+
+	public $components = array("FileParser");
 	
 	protected $moduleName = 'glossary';
 	
@@ -70,6 +72,71 @@ class GlossaryController extends ModulesController {
  		$this->userInfoMessage(__("Definition term saved", true)." - ".$this->data["title"]);
 		$this->eventInfo("definition_term [". $this->data["title"]."] saved");
 	}
+
+	public function import() {
+	}
+
+	public function importSave() {
+		$this->checkWriteModulePermission();
+
+		$DefinitionTermId = Configure::read("objectTypes.definition_term.id");
+		$Category = $this->Category;
+		$DefinitionTerm = $this->DefinitionTerm;
+
+		// Parse XML data.
+		$definitionTerms = array();
+		if ($_FILES['source']['error'] != UPLOAD_ERR_OK) {
+			throw new BeditaException(__("File upload failed", true));
+		}
+		try {
+			$definitionTerms = $this->FileParser->parse(file_get_contents($_FILES['source']['tmp_name']), $_FILES['source']['name']);
+		} catch (Exception $e) {
+			throw new BeditaException(__($e->getMessage(), true));
+		}
+
+		// Categories.
+		$categories = array();
+		foreach ($definitionTerms as $term) {
+			$categories = array_merge($categories, $term['categories']);
+		}
+		$categories = array_unique($categories);  // List of used categories.
+		$existingCat = $Category->find("all", array('conditions' => array(
+				"Category.name" => $categories,
+				"Category.object_type_id" => $DefinitionTermId,
+		)));
+		$existingCat = Set::combine($existingCat, "{n}.id", "{n}.name");  // Search for existing categories.
+		$missingCat = array_diff($categories, $existingCat);  // Find missing categories.
+		foreach ($missingCat as $cat) {
+			// Save missing categories.
+			$this->Category->create();
+			$this->Transaction->begin();
+			if (!$this->Category->save(array("object_type_id" => $DefinitionTermId, "label" => $cat))) {
+				throw new BeditaException(__("Error saving tag", true), $this->Category->validationErrors);
+			}
+			$this->Transaction->commit();
+			$this->eventInfo("category [" .$cat . "] saved");
+			$existingCat[$this->Category->id] = $cat;
+		}
+		$categories = array_flip($existingCat);  // Finally, categories' list.
+
+		// Save definition terms.
+		foreach ($definitionTerms as &$term) {
+			foreach ($term['categories'] as $cat) {
+				$id = $categories[$cat];
+				$term['Category'][$id] = $id;
+			}
+			unset($term['categories']);
+			$this->DefinitionTerm->create();
+			$this->Transaction->begin();
+			if (!$this->DefinitionTerm->save($term)) {
+				throw new BeditaException(__("Error saving object", true), $this->DefinitionTerm->validationErrors);
+			}
+			$this->Transaction->commit();
+			$this->eventInfo("definition_term [". $term['title']."] saved");
+		}
+
+ 		$this->userInfoMessage(__("Import completed", true));
+	}
 	
 	public function categories() {
 		$this->showCategories($this->DefinitionTerm);
@@ -78,9 +145,9 @@ class GlossaryController extends ModulesController {
 	public function saveCategories() {
 		$this->checkWriteModulePermission();
 		if(empty($this->data["label"])) 
-			throw new BeditaException( __("No data", true));
+			throw new BeditaException(__("No data", true));
 		$this->Transaction->begin() ;
-		if(!ClassRegistry::init("Category")->save($this->data)) {
+		if(!$this->Category->save($this->data)) {
 			throw new BeditaException(__("Error saving tag", true), $this->Category->validationErrors);
 		}
 		$this->Transaction->commit();
@@ -93,7 +160,7 @@ class GlossaryController extends ModulesController {
 		if(empty($this->data["id"])) 
 			throw new BeditaException( __("No data", true));
 		$this->Transaction->begin() ;
-		if(!ClassRegistry::init("Category")->del($this->data["id"])) {
+		if(!$this->Category->del($this->data["id"])) {
 			throw new BeditaException(__("Error saving tag", true), $this->Category->validationErrors);
 		}
 		$this->Transaction->commit();
@@ -113,6 +180,10 @@ class GlossaryController extends ModulesController {
 			"save"	=> 	array(
 							"OK"	=> "/glossary/view/".@$this->DefinitionTerm->id,
 							"ERROR"	=> $this->referer()
+							),
+			"importSave" => array(
+							"OK"	=> "/glossary",
+							"ERROR"	=> "/glossary/import"
 							),
 			"saveCategories" 	=> array(
 							"OK"	=> "/glossary/categories",
