@@ -27,7 +27,7 @@
 			<input type="file" name="source" />
 		</label>
 		
-		<input type="submit" value="{t}find it{/t}" />
+		<input type="submit" value="{t}import{/t}" />
 	</form>
 </div>
 

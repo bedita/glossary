@@ -28,53 +28,53 @@ class FileParserComponent {
 		if ($dom !== false) {
 			// XML.
 			$chapter = $dom->firstChild;
-			if (strtolower($chapter->nodeName) != "capitolo") {
+			if (strtolower($chapter->nodeName) != "collection") {
 				throw new Exception("Wrong XML structure");
 			}
 
 			// Parse all terms.
-			$boxes = $dom->getElementsByTagName("box");
-			for ($i = 0; $i < $boxes->length; $i++) {
-				$box = $boxes->item($i);
+			$objects = $dom->getElementsByTagName("object");
+			for ($i = 0; $i < $objects->length; $i++) {
+				$obj = $objects->item($i);
 
 				// Term ID.
-				if (!$box->hasAttribute("id")) {
-					throw new Exception("Missing attribute \"id\" (file: {$fileName} ; line: " . $box->getLineNo() . ")");
+				if (!$obj->hasAttribute("nickname")) {
+					throw new Exception("Missing attribute \"nickname\" (file: {$fileName} ; line: " . $obj->getLineNo() . ")");
 				}
-				$id = $box->getAttribute("id");
+				$nickname = $obj->getAttribute("nickname");
 
 				// Term lang.
 				$lang = null;
-				if ($box->hasAttribute("lang")) {
-					$lang = $box->getAttribute("lang");
+				if ($obj->hasAttribute("lang")) {
+					$lang = $obj->getAttribute("lang");
 				}
 
 				// Term title.
-				$title = $box->getElementsByTagName("titolo");
+				$title = $obj->getElementsByTagName("title");
 				if ($title->length < 1) {
-					throw new Exception("Missing tag \"title\" (file: {$fileName} ; line: " . $box->getLineNo() . ")");
+					throw new Exception("Missing tag \"title\" (file: {$fileName} ; line: " . $obj->getLineNo() . ")");
 				} elseif ($title->length > 1) {
-					throw new Exception("Too many tags \"title\" (file: {$fileName} ; line: " . $box->getLineNo() . ")");
+					throw new Exception("Too many tags \"title\" (file: {$fileName} ; line: " . $obj->getLineNo() . ")");
 				}
-				$title = $title->item(0)->nodeValue;
+				$title = $title->item(0)->textContent;
 
 				// Term description.
-				$desc = $box->getElementsByTagName("capoverso");
+				$desc = $obj->getElementsByTagName("description");
 				if ($desc->length) {
-					$desc = preg_replace("/^<capoverso.*?>|<\/capoverso>$/i", "", $dom->saveXML($desc->item(0)));
+					$desc = $desc->item(0)->textContent;
 				} else {
 					$desc = null;
 				}
 
 				// Term category(ies).
 				$cat = array();
-				if ($box->hasAttribute("categoria")) {
-					$cat = explode(" ", $box->getAttribute("categoria"));
+				if ($obj->hasAttribute("categories")) {
+					$cat = explode(" ", $obj->getAttribute("categories"));
 				}
 
 				// Push in arrays.
 				array_push($definitionTerms, array(
-					'nickname' => $id,
+					'nickname' => $nickname,
 					'lang' => $lang,
 					'categories' => $cat,
 					'title' => $title,

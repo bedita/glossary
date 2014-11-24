@@ -116,6 +116,11 @@ class GlossaryController extends ModulesController {
 			$this->Transaction->commit();
 			$this->eventInfo("category [" .$cat . "] saved");
 			$existingCat[$this->Category->id] = $cat;
+
+			$data = $this->Category->find('first', array('conditions' => array("id" => $this->Category->id)));
+			if ($data['name'] != $cat) {
+				$this->userWarnMessage("Category \"{$cat}\" didn't exist. It was automatically created, but name was already in use. Used \"{$data['name']}\" instead.");
+			}
 		}
 		$categories = array_flip($existingCat);  // Finally, categories' list.
 
