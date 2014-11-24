@@ -27,6 +27,10 @@ class FileParserComponent {
 		$dom = DOMDocument::loadXML($fileContents);
 		if ($dom !== false) {
 			// XML.
+			if (!$dom->validate()) {
+				throw new Exception("Failed DTD validation");
+			}
+
 			$chapter = $dom->firstChild;
 			if (strtolower($chapter->nodeName) != "collection") {
 				throw new Exception("Wrong XML structure");

@@ -228,4 +228,3 @@ class GlossaryController extends ModulesController {
 	}
 	
 }
-?>
