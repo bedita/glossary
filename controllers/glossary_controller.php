@@ -77,20 +77,26 @@ class GlossaryController extends ModulesController {
 	public function import() {
 	}
 
-	public function importSave() {
+	public function importSave($xml = null) {
 		$this->checkWriteModulePermission();
 
-		$DefinitionTermId = Configure::read("objectTypes.definition_term.id");
+		$DefinitionTermId = Configure::read('objectTypes.definition_term.id');
 		$Category = $this->Category;
 		$DefinitionTerm = $this->DefinitionTerm;
 
+		// Get XML string.
+		if (empty($xml)) {
+			// Uploaded file.
+			if ($_FILES['source']['error'] != UPLOAD_ERR_OK) {
+				throw new BeditaException(__('File upload failed', true));
+			}
+			$xml = file_get_contents($_FILES['source']['tmp_name']);
+		}
+
 		// Parse XML data.
 		$definitionTerms = array();
-		if ($_FILES['source']['error'] != UPLOAD_ERR_OK) {
-			throw new BeditaException(__("File upload failed", true));
-		}
 		try {
-			$definitionTerms = $this->FileParser->parse(file_get_contents($_FILES['source']['tmp_name']), $_FILES['source']['name']);
+			$definitionTerms = $this->FileParser->parse($xml);
 		} catch (Exception $e) {
 			throw new BeditaException(__($e->getMessage(), true));
 		}
@@ -101,26 +107,26 @@ class GlossaryController extends ModulesController {
 			$categories = array_merge($categories, $term['categories']);
 		}
 		$categories = array_unique($categories);  // List of used categories.
-		$existingCat = $Category->find("all", array('conditions' => array(
-				"Category.name" => $categories,
-				"Category.object_type_id" => $DefinitionTermId,
+		$existingCat = $Category->find('all', array('conditions' => array(
+				'Category.name' => $categories,
+				'Category.object_type_id' => $DefinitionTermId,
 		)));
-		$existingCat = Set::combine($existingCat, "{n}.id", "{n}.name");  // Search for existing categories.
+		$existingCat = Set::combine($existingCat, '{n}.id', '{n}.name');  // Search for existing categories.
 		$missingCat = array_diff($categories, $existingCat);  // Find missing categories.
 		foreach ($missingCat as $cat) {
 			// Save missing categories.
 			$this->Category->create();
 			$this->Transaction->begin();
-			if (!$this->Category->save(array("object_type_id" => $DefinitionTermId, "label" => $cat))) {
-				throw new BeditaException(__("Error saving tag", true), $this->Category->validationErrors);
+			if (!$this->Category->save(array('object_type_id' => $DefinitionTermId, 'label' => $cat))) {
+				throw new BeditaException(__('Error saving tag', true), $this->Category->validationErrors);
 			}
 			$this->Transaction->commit();
-			$this->eventInfo("category [" .$cat . "] saved");
+			$this->eventInfo('category [' .$cat . '] saved');
 			$existingCat[$this->Category->id] = $cat;
 
-			$data = $this->Category->find('first', array('conditions' => array("id" => $this->Category->id)));
+			$data = $this->Category->find('first', array('conditions' => array('id' => $this->Category->id)));
 			if ($data['name'] != $cat) {
-				$this->userWarnMessage("Category \"{$cat}\" didn't exist. It was automatically created, but name was already in use. Used \"{$data['name']}\" instead.");
+				$this->userWarnMessage("Category \"$cat\" didn't exist. It was automatically created, but name was already in use. Used \"" . $data['name'] . '" instead.');
 			}
 		}
 		$categories = array_flip($existingCat);  // Finally, categories' list.
@@ -135,15 +141,15 @@ class GlossaryController extends ModulesController {
 			$this->DefinitionTerm->create();
 			$this->Transaction->begin();
 			if (!$this->DefinitionTerm->save($term)) {
-				throw new BeditaException(__("Error saving object", true), $this->DefinitionTerm->validationErrors);
+				throw new BeditaException(__('Error saving object', true), $this->DefinitionTerm->validationErrors);
 			}
 			$this->Transaction->commit();
-			$this->eventInfo("definition_term [". $term['title']."] saved");
+			$this->eventInfo('definition_term [' . $term['title'] . '] saved');
 		}
 
- 		$this->userInfoMessage(__("Import completed", true));
+ 		$this->userInfoMessage(__('Import completed', true));
 	}
-	
+
 	public function categories() {
 		$this->showCategories($this->DefinitionTerm);
 	}

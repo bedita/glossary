@@ -20,7 +20,7 @@
  */
 
 class FileParserComponent {
-	public function parse($fileContents, $fileName) {
+	public function parse($fileContents) {
 		$chapter = null;
 		$definitionTerms = array();
 
@@ -28,38 +28,38 @@ class FileParserComponent {
 		if ($dom !== false) {
 			// XML.
 			$chapter = $dom->firstChild;
-			if (strtolower($chapter->nodeName) != "collection") {
-				throw new Exception("Wrong XML structure");
+			if (strtolower($chapter->nodeName) != 'collection') {
+				throw new Exception('Wrong XML structure');
 			}
 
 			// Parse all terms.
-			$objects = $dom->getElementsByTagName("object");
+			$objects = $dom->getElementsByTagName('object');
 			for ($i = 0; $i < $objects->length; $i++) {
 				$obj = $objects->item($i);
 
 				// Term ID.
-				if (!$obj->hasAttribute("nickname")) {
-					throw new Exception("Missing attribute \"nickname\" (file: {$fileName} ; line: " . $obj->getLineNo() . ")");
+				if (!$obj->hasAttribute('nickname')) {
+					throw new Exception('Missing attribute "nickname" (line: ' . $obj->getLineNo() . ')');
 				}
-				$nickname = $obj->getAttribute("nickname");
+				$nickname = $obj->getAttribute('nickname');
 
 				// Term lang.
 				$lang = null;
-				if ($obj->hasAttribute("lang")) {
-					$lang = $obj->getAttribute("lang");
+				if ($obj->hasAttribute('lang')) {
+					$lang = $obj->getAttribute('lang');
 				}
 
 				// Term title.
-				$title = $obj->getElementsByTagName("title");
+				$title = $obj->getElementsByTagName('title');
 				if ($title->length < 1) {
-					throw new Exception("Missing tag \"title\" (file: {$fileName} ; line: " . $obj->getLineNo() . ")");
+					throw new Exception('Missing tag "title" (line: ' . $obj->getLineNo() . ')');
 				} elseif ($title->length > 1) {
-					throw new Exception("Too many tags \"title\" (file: {$fileName} ; line: " . $obj->getLineNo() . ")");
+					throw new Exception('Too many tags "title" (line: ' . $obj->getLineNo() . ')');
 				}
 				$title = $title->item(0)->textContent;
 
 				// Term description.
-				$desc = $obj->getElementsByTagName("description");
+				$desc = $obj->getElementsByTagName('description');
 				if ($desc->length) {
 					$desc = $desc->item(0)->textContent;
 				} else {
@@ -68,8 +68,8 @@ class FileParserComponent {
 
 				// Term category(ies).
 				$cat = array();
-				if ($obj->hasAttribute("categories")) {
-					$cat = explode(" ", $obj->getAttribute("categories"));
+				if ($obj->hasAttribute('categories')) {
+					$cat = explode(' ', $obj->getAttribute('categories'));
 				}
 
 				// Push in arrays.
@@ -82,7 +82,7 @@ class FileParserComponent {
 				));  // Object details.
 			}
 		} else {
-			throw new Exception("Unsupported file format");
+			throw new Exception('Unsupported file format');
 		}
 
 		return $definitionTerms;
