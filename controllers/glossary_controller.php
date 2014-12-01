@@ -31,8 +31,9 @@
  */
 class GlossaryController extends ModulesController {
 	
-	public $uses = array("DefinitionTerm","Category");
+	public $uses = array('DefinitionTerm', 'Category');
 	var $helpers 	= array('BeTree', 'BeToolbar');
+	public $categorizableModels = array('DefinitionTerm');
 	
 	protected $moduleName = 'glossary';
 	
@@ -73,32 +74,6 @@ class GlossaryController extends ModulesController {
 	
 	public function categories() {
 		$this->showCategories($this->DefinitionTerm);
-	}
-	
-	public function saveCategories() {
-		$this->checkWriteModulePermission();
-		if(empty($this->data["label"])) 
-			throw new BeditaException( __("No data", true));
-		$this->Transaction->begin() ;
-		if(!ClassRegistry::init("Category")->save($this->data)) {
-			throw new BeditaException(__("Error saving tag", true), $this->Category->validationErrors);
-		}
-		$this->Transaction->commit();
-		$this->userInfoMessage(__("Category saved", true)." - ".$this->data["label"]);
-		$this->eventInfo("category [" .$this->data["label"] . "] saved");
-	}
-
-	public function deleteCategories() {
-		$this->checkWriteModulePermission();
-		if(empty($this->data["id"])) 
-			throw new BeditaException( __("No data", true));
-		$this->Transaction->begin();
-		if(!ClassRegistry::init("Category")->delete($this->data["id"])) {
-			throw new BeditaException(__("Error saving tag", true), $this->Category->validationErrors);
-		}
-		$this->Transaction->commit();
-		$this->userInfoMessage(__("Category deleted", true) . " -  " . $this->data["label"]);
-		$this->eventInfo("Category " . $this->data["id"] . "-" . $this->data["label"] . " deleted");
 	}
 	
 	protected function forward($action, $esito) {
