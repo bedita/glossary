@@ -26,6 +26,11 @@
 			{t}Source file{/t}:
 			<input type="file" name="source" />
 		</label>
+
+		<label>
+			{t}Force import on duplicate nickname(s){/t}:
+			<input type="checkbox" name="data[force]" value="1" />
+		</label>
 		
 		<input type="submit" value="{t}import{/t}" />
 	</form>

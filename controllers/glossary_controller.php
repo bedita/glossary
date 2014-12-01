@@ -101,6 +101,25 @@ class GlossaryController extends ModulesController {
 			throw new BeditaException(__($e->getMessage(), true));
 		}
 
+		// Check for duplicate nicknames.
+		if (empty($this->data) || !array_key_exists('force', $this->data) || !$this->data['force']) {
+			$nicknames = array();
+			foreach ($definitionTerms as $term) {
+				array_push($nicknames, $term['nickname']);
+			}
+
+			$duplicates = ClassRegistry::init('BEObject')->find('list', array(
+				'fields' => array('BEObject.id', 'BEObject.nickname'),
+				'conditions' => array('BEObject.nickname' => $nicknames)
+			));
+
+			if (count($duplicates)) {
+				throw new BeditaException(__('Duplicate nicknames: ', true) . implode(', ', $duplicates));
+			}
+		}
+
+		$this->Transaction->begin();
+
 		// Categories.
 		$categories = array();
 		foreach ($definitionTerms as $term) {
@@ -116,11 +135,9 @@ class GlossaryController extends ModulesController {
 		foreach ($missingCat as $cat) {
 			// Save missing categories.
 			$this->Category->create();
-			$this->Transaction->begin();
 			if (!$this->Category->save(array('object_type_id' => $DefinitionTermId, 'label' => $cat))) {
 				throw new BeditaException(__('Error saving tag', true), $this->Category->validationErrors);
 			}
-			$this->Transaction->commit();
 			$this->eventInfo('category [' .$cat . '] saved');
 			$existingCat[$this->Category->id] = $cat;
 
@@ -139,14 +156,13 @@ class GlossaryController extends ModulesController {
 			}
 			unset($term['categories']);
 			$this->DefinitionTerm->create();
-			$this->Transaction->begin();
 			if (!$this->DefinitionTerm->save($term)) {
 				throw new BeditaException(__('Error saving object', true), $this->DefinitionTerm->validationErrors);
 			}
-			$this->Transaction->commit();
 			$this->eventInfo('definition_term [' . $term['title'] . '] saved');
 		}
 
+		$this->Transaction->commit();
  		$this->userInfoMessage(__('Import completed', true));
 	}
 
