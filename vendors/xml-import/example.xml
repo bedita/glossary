@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<collection>
+    <object categories="art science" nickname="golden-ratio" lang="eng">
+        <title>Golden Ratio</title>
+    	<description>
+            <![CDATA[
+<p>
+    Golden ratio is often associated with beauty.
+</p>
+            ]]>
+        </description>
+    </object>
+
+    <object categories="science math" nickname="galois-theory" lang="eng">
+        <title>Galois Theory</title>
+        <description>
+            <![CDATA[
+<p>
+    Galois theory is an important branch of algebra.
+</p>
+            ]]>
+        </description>
+    </object>
+</collection>

@@ -1,0 +1,8 @@
+<!ELEMENT collection (object+)>
+<!ELEMENT object (title,description*)>
+<!ELEMENT title (#PCDATA)>
+<!ELEMENT description (#PCDATA)>
+
+<!ATTLIST object categories CDATA #IMPLIED>
+<!ATTLIST object nickname ID #REQUIRED>
+<!ATTLIST object lang CDATA #IMPLIED>
