@@ -186,10 +186,6 @@ class GlossaryController extends ModulesController {
 							"OK"	=> "/glossary",
 							"ERROR"	=> "/glossary/import"
 							),
-			"saveCategories" 	=> array(
-							"OK"	=> "/glossary/categories",
-							"ERROR"	=> "/glossary/categories"
-							),
 			"deleteCategories" 	=> array(
 							"OK"	=> "/glossary/categories",
 							"ERROR"	=> "/glossary/categories"
