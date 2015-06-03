@@ -194,6 +194,10 @@ class GlossaryController extends ModulesController {
 							"OK"	=> "/glossary/categories",
 							"ERROR"	=> "/glossary/categories"
 							),
+            'bulkCategories' => array(
+                'OK' => '/glossary/categories',
+                'ERROR' => '/glossary/categories',
+            ),
 			"delete" =>	array(
 							"OK"	=> $this->fullBaseUrl . $this->Session->read('backFromView'),
 							"ERROR"	=> $this->referer()
