@@ -48,17 +48,19 @@ class DefinitionTerm extends BeditaObjectModel {
 	 */
 	public function findByWord($word, $options = array()) {
 		$title = strtolower($word);
-		$exactMatch = (!empty($options['exactMatch']))? true : false;
-		if (!empty($options['conditions'])) {
-			$conditions = $options['conditions'];
-		}
-		$conditions['BEObject.object_type_id'] = Configure::read("objectTypes.definition_term.id");
-		array_push($conditions, 'lower(BEObject.title) = \'' . $title . '\'');
-		$definitionTerm = $this->find('first', array(
-			'conditions' =>	$conditions
-		));
+		$conditions = array(
+			'BEObject.object_type_id' => Configure::read("objectTypes.definition_term.id"),
+			'lower(BEObject.title) = \'' . $title . '\'',
+		);
+		// if (!empty($options['conditions'])) {
+		// 	$conditions = $options['conditions'];
+		// }
+		// $conditions['BEObject.object_type_id'] = ;
+		// array_push($conditions, 'lower(BEObject.title) = \'' . $title . '\'');
+		$definitionTerm = $this->find('first', array_merge_recursive($options, compact('conditions')));
 		
 		// if no result found through out exact match try to find singular or plural
+		$exactMatch = (!empty($options['exactMatch']))? true : false;
 		if (empty($definitionTerm) && !$exactMatch) {
 			$titleSingular = Inflector::singularize($title);
 			$titlePlural = Inflector::pluralize($title);
