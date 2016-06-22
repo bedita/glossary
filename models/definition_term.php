@@ -57,7 +57,7 @@ class DefinitionTerm extends BeditaObjectModel {
 		// }
 		// $conditions['BEObject.object_type_id'] = ;
 		// array_push($conditions, 'lower(BEObject.title) = \'' . $title . '\'');
-		$definitionTerm = $this->find('first', array_merge_recursive($options, compact('conditions')));
+		$definitionTerm = $this->find('all', array_merge_recursive($options, compact('conditions')));
 		
 		// if no result found through out exact match try to find singular or plural
 		$exactMatch = (!empty($options['exactMatch']))? true : false;
