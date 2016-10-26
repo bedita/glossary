@@ -14,5 +14,9 @@
 	<label>{t}description{/t}:</label>
 	<br />
 	<textarea class="richtextSimple subtitle" style="height:280px" name="data[description]">{$object.description|default:''|escape:'html'}</textarea>
-	
+    <br />
+
+    <label>{t}semantic equivalent{/t}:</label>
+    <input type="text" name="data[semantic_equivalent]" value="{$object.semantic_equivalent|escape:'html'|escape:'quotes'}"></ins>
+
 </fieldset>

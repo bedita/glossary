@@ -1,77 +1,269 @@
 <?php
 /*-----8<--------------------------------------------------------------------
- * 
+ *
  * BEdita - a semantic content management framework
- * 
+ *
  * Copyright 2008 ChannelWeb Srl, Chialab Srl
- * 
+ *
  * This file is part of BEdita: you can redistribute it and/or modify
- * it under the terms of the Affero GNU General Public License as published 
- * by the Free Software Foundation, either version 3 of the License, or 
+ * it under the terms of the Affero GNU General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * BEdita is distributed WITHOUT ANY WARRANTY; without even the implied 
+ * BEdita is distributed WITHOUT ANY WARRANTY; without even the implied
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the Affero GNU General Public License for more details.
- * You should have received a copy of the Affero GNU General Public License 
+ * You should have received a copy of the Affero GNU General Public License
  * version 3 along with BEdita (see LICENSE.AGPL).
  * If not, see <http://gnu.org/licenses/agpl-3.0.html>.
- * 
+ *
  *------------------------------------------------------------------->8-----
  */
 
 /**
- * glossary controller class 
- * 
- *
- * @version			$Revision: 2535 $
- * @modifiedby 		$LastChangedBy: bato $
- * @lastmodified	$LastChangedDate: 2009-12-30 10:36:21 +0100 (mer, 30 dic 2009) $
- * 
- * $Id: glossary_controller.php 2535 2009-12-30 09:36:21Z bato $
+ * glossary controller class
  */
 class GlossaryController extends ModulesController {
-	
-	public $uses = array('DefinitionTerm', 'Category');
-	var $helpers 	= array('BeTree', 'BeToolbar');
-	public $components = array("FileParser");
-	
-	protected $moduleName = 'glossary';
-	protected $categorizableModels = array('DefinitionTerm');
-	
-	public function index($id = null, $order = "", $dir = true, $page = 1, $dim = 20) {
-		$conf  = Configure::getInstance() ;
-		$filter["object_type_id"] = array($conf->objectTypes['definition_term']["id"]);
-		$filter["count_annotation"] = array("Comment","EditorNote");
-		$this->paginatedList($id, $filter, $order, $dir, $page, $dim);
-		$this->loadCategories($filter["object_type_id"]);
-	}
-	
-	public function view($id = null) {
-		$this->viewObject($this->DefinitionTerm, $id);
-	}
-	
-	public function delete() {
-		$this->checkWriteModulePermission();
-		$objectsListDeleted = $this->deleteObjects("DefinitionTerm");
-		$this->userInfoMessage(__("Glossary definition term deleted", true) . " -  " . $objectsListDeleted);
-		$this->eventInfo("glossary definition term $objectsListDeleted deleted");
-	}
-	
-	public function deleteSelected() {
-		$this->checkWriteModulePermission();
-		$objectsListDeleted = $this->deleteObjects("DefinitionTerm");
-		$this->userInfoMessage(__("Glossary definition term", true) . " -  " . $objectsListDeleted);
-		$this->eventInfo("glossary definition term $objectsListDeleted deleted");
-	}
-	
-	public function save() {
-		$this->checkWriteModulePermission();
-		$this->Transaction->begin();
-		$this->saveObject($this->DefinitionTerm);
-	 	$this->Transaction->commit() ;
- 		$this->userInfoMessage(__("Definition term saved", true)." - ".$this->data["title"]);
-		$this->eventInfo("definition_term [". $this->data["title"]."] saved");
-	}
+
+    /**
+     * Module name.
+     *
+     * @var string
+     */
+    public $name = 'Glossary';
+
+    /**
+     * Models used by this controller.
+     *
+     * @var array
+     */
+    public $uses = array('DefinitionTerm', 'DefinitionGroup', 'Category');
+
+    /**
+     * Helpers.
+     *
+     * @var array
+     */
+    public $helpers = array('BeTree', 'BeToolbar', 'ImageInfo');
+
+    /**
+     * Components.
+     *
+     * @var array
+     */
+    public $components = array(
+        'BeFileHandler',
+        'BeSecurity' => array(
+            'disableActions' => array('loadObjectToAssoc'),
+        ),
+        'BeUploadToObj',
+        'FileParser',
+    );
+
+    /**
+     * BEdita module name.
+     *
+     * @var string
+     */
+    protected $moduleName = 'glossary';
+
+    /**
+     * Models categorizable within this controller.
+     *
+     * @var array
+     */
+    protected $categorizableModels = array('DefinitionTerm');
+
+    /**
+     * View a list of all Definition Terms.
+     *
+     * @param $id int
+     * @param $order string
+     * @param $dir boolean
+     * @param $page int
+     * @param $dim int
+     */
+    public function index($id = null, $order = '', $dir = true, $page = 1, $dim = 20) {
+        $filter['object_type_id'] = Configure::read('objectTypes.definition_term.id');
+        $filter['count_annotation'] = array('Comment', 'EditorNote');
+
+        $this->paginatedList($id, $filter, $order, $dir, $page, $dim);
+        $this->loadCategories($filter['object_type_id']);
+    }
+
+    /**
+     * View a list of all Definition Groups.
+     *
+     * @param $id int
+     * @param $order string
+     * @param $dir boolean
+     * @param $page int
+     * @param $dim int
+     */
+    public function definition_groups($id = null, $order = '', $dir = true, $page = 1, $dim = 20) {
+        $filter['object_type_id'] = Configure::read('objectTypes.definition_group.id');
+        $filter['count_annotation'] = array('Comment', 'EditorNote');
+
+        $this->paginatedList($id, $filter, $order, $dir, $page, $dim);
+        $this->loadCategories($filter['object_type_id']);
+
+        $this->render('index');
+    }
+
+    /**
+     * View a DefinitionTerm or a DefinitionGroup.
+     *
+     * @param $id int|null
+     */
+    public function view($id = null) {
+        $Model = $this->DefinitionTerm;
+        $modelName = 'definition_term';
+        if ($id === 'definition_group') {
+            $id = null;
+            $Model = $this->DefinitionGroup;
+            $modelName = 'definition_group';
+        } elseif (ClassRegistry::init('BEObject')->findObjectTypeId($id) === Configure::read('objectTypes.definition_group.id')) {
+            $Model = $this->DefinitionGroup;
+            $modelName = 'definition_group';
+        }
+
+        $this->viewObject($Model, $id);
+        $this->set('objectTypeId', Configure::read("objectTypes.{$modelName}.id"));
+    }
+
+    /**
+     * Save a DefinitionTerm or a DefinitionGroup.
+     */
+    public function save() {
+        $modelName = 'definition_term';
+        $objectTypeId = $this->data['object_type_id'];
+        if (!empty($this->data['id'])) {
+            $objectTypeId = ClassRegistry::init('BEObject')->findObjectTypeId($this->data['id']);
+        }
+        if ($objectTypeId === Configure::read('objectTypes.definition_group.id')) {
+            $modelName = 'definition_group';
+        }
+
+        $this->checkWriteModulePermission();
+        $this->Transaction->begin();
+        if ($modelName === 'definition_group') {
+            $this->savePlan();
+        } else {
+            $this->data['coords'] = array(array(0, 0), array(0, 10), array(10, 0));
+            $this->saveObject($this->DefinitionTerm);
+        }
+        $this->Transaction->commit();
+        $this->userInfoMessage(__($modelName . ' saved', true) . ' - ' . $this->data['title']);
+        $this->eventInfo("{$modelName} [{$this->data['title']}] saved");
+    }
+
+    /**
+     * Method to save a DefinitionGroup.
+     *
+     * @return void
+     * @throws BeditaException Throws an exception on save error.
+     */
+    protected function savePlan() {
+        if (empty($this->data)) {
+            throw new BeditaException(__('No data', true));
+        }
+
+        $new = empty($this->data['id']);
+
+        if (!$new) {
+            $this->checkObjectWritePermission($this->data['id']);
+        }
+
+        $this->prepareRelationsToSave();
+
+        // Format custom properties
+        $this->BeCustomProperty->setupForSave();
+
+        // save data
+        if (!empty($this->params['form']['tags'])) {
+            $this->data['Category'] = ClassRegistry::init('Category')->saveTagList($this->params['form']['tags']);
+        }
+
+        if (!empty($this->params['form']['Filedata']['name'])) {
+            unset($this->data['url']);
+
+            $this->params['form']['forceupload'] = true;
+
+            $this->data['id'] = $this->BeUploadToObj->upload($this->data);
+            $this->DefinitionGroup->Behaviors->disable('ForeignDependenceSave');
+            if (!$this->DefinitionGroup->save($this->data)) {
+                throw new BeditaException(__('Error saving definition_group', true), $this->DefinitionGroup->validationErrors);
+            }
+            $this->DefinitionGroup->Behaviors->enable('ForeignDependenceSave');
+            $BEObject = ClassRegistry::init('BEObject');
+            $BEObject->id = $this->DefinitionGroup->id;
+            $BEObject->saveField('object_type_id', Configure::read('objectTypes.definition_group.id'));
+        } elseif (!empty($this->data['url'])) {
+            $this->DefinitionGroup->id = $this->BeUploadToObj->uploadFromURL($this->data, true);
+        } else {
+            unset($this->data['url']);
+
+            if (!isset($this->data['Permission'])) {
+                $this->data['Permission'] = array();
+            }
+
+            if (!$this->DefinitionGroup->save($this->data)) {
+                throw new BeditaException(__('Error saving definition_group', true), $this->DefinitionGroup->validationErrors);
+            }
+        }
+
+        $this->data['id'] = $this->DefinitionGroup->id;
+
+        if (isset($this->data['destination'])) {
+            if (!$new) {
+                $this->BeTree->setupForSave($this->DefinitionGroup->id, $this->data['destination']);
+            }
+            ClassRegistry::init('Tree')->updateTree($this->DefinitionGroup->id, $this->data['destination']);
+        }
+    }
+
+    /**
+     * Delete a DefinitionTerm or a DefinitionGroup.
+     */
+    public function delete() {
+        $Model = $this->DefinitionTerm;
+        $modelName = 'definition_term';
+        $objectTypeId = ClassRegistry::init('BEObject')->findObjectTypeId($this->data['id']);
+        if ($objectTypeId === Configure::read('objectTypes.definition_group.id')) {
+            $Model = $this->DefinitionGroup;
+            $modelName = 'definition_group';
+        }
+
+        $this->checkWriteModulePermission();
+        $objectsListDeleted = $this->deleteObjects($Model->name);
+        $this->userInfoMessage(__($Model->name . ' deleted', true) . ' - ' . $objectsListDeleted);
+        $this->eventInfo("{$modelName} {$objectsListDeleted} deleted");
+    }
+
+    /**
+     * Delete multiple Definition Terms or Definition Groups.
+     */
+    public function deleteSelected() {
+        $Model = $this->DefinitionTerm;
+        $modelName = 'definition_term';
+        $objectTypeId = ClassRegistry::init('BEObject')
+            ->findObjectTypeId(current($this->params['form']['objects_selected']));
+        if ($objectTypeId === Configure::read('objectTypes.definition_group.id')) {
+            $Model = $this->DefinitionGroup;
+            $modelName = 'definition_group';
+        }
+
+        $this->checkWriteModulePermission();
+        $objectsListDeleted = $this->deleteObjects($Model->name);
+        $this->userInfoMessage(__($Model->name . 's deleted', true) . ' - ' . $objectsListDeleted);
+        $this->eventInfo("{$modelName}s {$objectsListDeleted} deleted");
+    }
+
+    /**
+     * Shows Definition Terms categories.
+     */
+    public function categories() {
+        $this->showCategories($this->DefinitionTerm);
+    }
 
 	public function import() {
 	}
@@ -165,62 +357,73 @@ class GlossaryController extends ModulesController {
  		$this->userInfoMessage(__('Import completed', true));
 	}
 
-	public function categories() {
-		$this->showCategories($this->DefinitionTerm);
-	}
-	
-	protected function forward($action, $esito) {
-		$REDIRECT = array(
-			"cloneObject"	=> 	array(
-							"OK"	=> "/glossary/view/".@$this->DefinitionTerm->id,
-							"ERROR"	=> "/glossary/view/".@$this->DefinitionTerm->id 
-							),
-			"view"	=> 	array(
-							"ERROR"	=> "/glossary" 
-							), 
-			"save"	=> 	array(
-							"OK"	=> "/glossary/view/".@$this->DefinitionTerm->id,
-							"ERROR"	=> $this->referer()
-							),
-			"importSave" => array(
-							"OK"	=> "/glossary",
-							"ERROR"	=> "/glossary/import"
-							),
-			"deleteCategories" 	=> array(
-							"OK"	=> "/glossary/categories",
-							"ERROR"	=> "/glossary/categories"
-							),
-            'bulkCategories' => array(
-                'OK' => '/glossary/categories',
-                'ERROR' => '/glossary/categories',
+    /**
+     * After-action redirect.
+     *
+     * @param string $action Controller action.
+     * @param string $status Either `OK` or `ERROR`.
+     * @return string|bool Redirect URL or `false`.
+     */
+    protected function forward($action, $status) {
+        $id = null;
+        if (!empty($this->DefinitionTerm->id)) {
+            $id = $this->DefinitionTerm->id;
+        } elseif (!empty($this->DefinitionGroup->id)) {
+            $id = $this->DefinitionGroup->id;
+        }
+
+        $REDIRECT = array(
+            'view' => array(
+                'ERROR' => '/' . $this->moduleName,
             ),
-			"delete" =>	array(
-							"OK"	=> $this->fullBaseUrl . $this->Session->read('backFromView'),
-							"ERROR"	=> $this->referer()
-							),
-			"deleteSelected" =>	array(
-							"OK"	=> $this->referer(),
-							"ERROR"	=> $this->referer() 
-							),
-			"addItemsToAreaSection"	=> 	array(
-							"OK"	=> $this->referer(),
-							"ERROR"	=> $this->referer() 
-							),
-			"changeStatusObjects"	=> 	array(
-							"OK"	=> $this->referer(),
-							"ERROR"	=> $this->referer() 
-							),
-			"assocCategory"	=> 	array(
-							"OK"	=> $this->referer(),
-							"ERROR"	=> $this->referer() 
-							),
-			"disassocCategory"	=> 	array(
-							"OK"	=> $this->referer(),
-							"ERROR"	=> $this->referer() 
-							)
-		);
-		if(isset($REDIRECT[$action][$esito])) return $REDIRECT[$action][$esito] ;
-		return false ;
-	}
-	
+            'save' => array(
+                'OK' => '/' . $this->moduleName . '/view/' . $id,
+                'ERROR' => $this->referer(),
+            ),
+            'delete' => array(
+                'OK' => $this->fullBaseUrl . $this->Session->read('backFromView'),
+                'ERROR' => $this->referer(),
+            ),
+            'update' => array(
+                'OK' => '/events',
+                'ERROR' => $this->referer(),
+            ),
+            'deleteSelected' => array(
+                'OK' => $this->referer(),
+                'ERROR' => $this->referer(),
+            ),
+            'importSave' => array(
+                'OK' => '/' . $this->moduleName,
+                'ERROR' => '/' . $this->moduleName . '/import',
+            ),
+
+            'addItemsToAreaSection' => array(
+                'OK' => $this->referer(),
+                'ERROR' => $this->referer(),
+            ),
+            'changeStatusObjects' => array(
+                'OK' => $this->referer(),
+                'ERROR' => $this->referer(),
+            ),
+            'cloneObject' => array(
+                'OK' => '/' . $this->moduleName . '/view/' . $id,
+                'ERROR' => '/' . $this->moduleName . '/view/' . $id,
+            ),
+
+            'deleteCategories' => array(
+                'OK' => '/' . $this->moduleName . '/categories',
+                'ERROR' => '/' . $this->moduleName . '/categories',
+            ),
+            'bulkCategories' => array(
+                'OK' => '/' . $this->moduleName . '/categories',
+                'ERROR' => '/' . $this->moduleName . '/categories',
+            ),
+        );
+
+        if (isset($REDIRECT[$action][$status])) {
+            return $REDIRECT[$action][$status];
+        }
+
+        return false;
+    }
 }

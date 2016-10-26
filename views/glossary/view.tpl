@@ -1,58 +1,51 @@
 {*
-** news view template
+** glossary view template
 *}
-{assign_associative var="params" inline="false"}
-{$html->css("ui.datepicker", null, $params)}
+
+{$html->css('/timelines/js/spectrum/spectrum.css', null, ['inline' => false])}
 
 {if strnatcmp($conf->majorVersion, '3.3') <= 0}
-    {$javascript->link("jquery/jquery.form", false)}
-    {$javascript->link("jquery/jquery.selectboxes.pack", false)}
-    {$javascript->link("jquery/ui/ui.sortable.min", true)}
-    {$javascript->link("jquery/ui/ui.datepicker.min", false)}
-    {if $currLang != "eng"}
-        {$javascript->link("jquery/ui/i18n/ui.datepicker-$currLang.js", false)}
+    {$javascript->link('jquery/jquery.form', false)}
+    {$javascript->link('jquery/jquery.selectboxes.pack', false)}
+    {$javascript->link('jquery/ui/ui.sortable.min', true)}
+    {$javascript->link('jquery/ui/ui.datepicker.min', false)}
+    {if $currLang != 'eng'}
+        {$javascript->link('jquery/ui/i18n/ui.datepicker-$currLang.js', false)}
     {/if}
+    {$html->script('/timelines/js/spectrum/spectrum.js', false)}
 {else}
-    {$html->script('libs/jquery/jquery-migrate-1.2.1', false)} {* assure js retrocompatibility *}
-    {$html->script("libs/jquery/plugins/jquery.form", false)}
-    {$html->script("libs/jquery/plugins/jquery.selectboxes.pack", false)}
-    {$html->script("libs/jquery/ui/jquery.ui.sortable.min", true)}
-    {$html->script("libs/jquery/ui/jquery.ui.datepicker.min", false)}
-    {if $currLang != "eng"}
-        {$html->script("libs/jquery/ui/i18n/jquery.ui.datepicker-$currLang2.min.js", false)}
-    {/if}
+    {$html->script('libs/jquery/jquery-migrate-1.2.1', false)} {* assure js retrocompatibility*}
+    {$html->script('libs/jquery/plugins/jquery.form', false)}
+    {$html->script('libs/jquery/plugins/jquery.selectboxes.pack', false)}
+    {$html->script('libs/jquery/ui/jquery.ui.sortable.min', true)}
+    {$html->script('/timelines/js/spectrum/spectrum.js', false)}
 {/if}
 
-{literal}
-<script type="text/javascript">
-    $(document).ready(function(){	
-		openAtStart("#title,#long_desc_langs_container");
+{$html->script('https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.10.3/moment-with-locales.min.js')}
+
+{*<script type="text/javascript">*}
+{$html->scriptStart(['inline' => false])}
+    $(document).ready(function() {
+        openAtStart('#title, #long_desc_langs_container');
     });
-</script>
-{/literal}
+{$html->scriptEnd()}
+{*</script>*}
 
-{$view->element("form_common_js")}
+{$view->element('form_common_js')}
 
-{$view->element("modulesmenu")}
+{$view->element('modulesmenu')}
 
-{assign_associative var="params" method="view"}
-{$view->element("menuleft", $params)}
+{$view->element('menuleft', ['method' => 'view'])}
 
 <div class="head">
-	
-	<h1>{if !empty($object)}{$object.title|default:"<i>[no title]</i>"}{else}<i>[{t}New item{/t}]</i>{/if}</h1>
-
+    <h1>{if !empty($object)}{$object.title|default:'<i>[no title]</i>'}{else}<i>[{t}New item{/t}]</i>{/if}</h1>
 </div>
 
-{assign var=objIndex value=0}
+{$objIndex = 0}
+{$view->element('menucommands', ['method' => 'view', 'fixed' => true])}
 
-{assign_associative var="params" method="view" fixed = true}
-{$view->element("menucommands", $params)}
-
-<div class="main">	
-	
-	{$view->element("form")}
-		
+<div class="main">
+    {if $objectTypeId == $conf->objectTypes.definition_group.id}{$view->element('form_group')}{else}{$view->element('form_term')}{/if}
 </div>
 
-{$view->element("menuright")}
+{$view->element('menuright')}
