@@ -3,7 +3,7 @@
  *
  * BEdita - a semantic content management framework
  *
- * Copyright 2010 ChannelWeb Srl, Chialab Srl
+ * Copyright 2016 ChannelWeb Srl, Chialab Srl
  *
  * This file is part of BEdita: you can redistribute it and/or modify
  * it under the terms of the Affero GNU General Public License as published
@@ -19,17 +19,13 @@
  *------------------------------------------------------------------->8-----
  */
 
-/**
- * Glossary setup.
- */
-$moduleSetup = array(
-    'publicName' => 'glossary',
-    'author' => 'Channelweb and Chialab',
-    'website' => 'http://www.bedita.com',
-    'emailAddress' => 'info@bedita.com',
-    'version' => '0.2',
-    'BEditaMinVersion' => '3.1',
-    'tables' => array('definition_terms'),
-    'description' => 'Glossary Module',
-    'BEditaObjects' => array('DefinitionTerm', 'DefinitionGroup'),
+$config['objRelationType'] = array(
+    'definition_terms' => array(
+        'hidden' => false,
+        'label' => 'definition terms',
+        'left' => array('definition_group'),
+        'right' => array('definition_term'),
+        'inverse' => 'in_definition_group',
+        'inverseLabel' => 'in definition group',
+    ),
 );

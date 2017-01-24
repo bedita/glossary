@@ -1,40 +1,42 @@
-{*
-Template incluso.
-Menu a SX valido per tutte le pagine del controller.
-*}
-
-{$view->set("method", $method)}
+{$view->set('method', $method)}
 <div class="primacolonna">
+    {* Column heading *}
+    <div class="modules">
+        <label class="bedita" rel="{$html->url('/')}">{$conf->projectName|default:''}</label>
+    </div>
 
-	<div class="modules"><label class="bedita" rel="{$html->url('/')}">{$conf->projectName|default:''}</label></div>
+    {* Actions menu *}
+    {$actions = ['index' => $currentModule.label, 'definition_groups' => 'Definition Groups', 'categories' => 'Categories', 'import' => 'Import many glossary terms']}
+    <ul class="menuleft insidecol">
+        {foreach $actions as $action => $label}
+        <li {if $method == $action}class="on"{/if}>
+            {$tr->link($label, $html->url(['controller' => $moduleName, 'action' => $action]))}
+        </li>
+        {/foreach}
+    </ul>
 
-    {if strcmp($conf->majorVersion, "3.2") < 0}
-        {$view->element("messages")}
+    {* Create new object *}
+    {if $module_modify == 1}
+    <ul class="menuleft insidecol">
+        <li>
+            {$tr->link('Create new glossary term', $html->url(['controller' => $moduleName, 'action' => 'view']))}
+        </li>
+        <li>
+            {$tr->link('Create new glossary group', $html->url(['controller' => $moduleName, 'action' => 'view', 'definition_group']))}
+        </li>
+    </ul>
     {/if}
-	
-		<ul class="menuleft insidecol">
-		<li {if $method eq 'index'}class="on"{/if}>{$tr->link('Glossary', '/glossary')}</li>
-		<li {if $method eq 'categories'}class="on"{/if}>{$tr->link('Categories', '/glossary/categories')}</li>
-		{if $module_modify eq '1'}
-		<li><a href="{$html->url('/glossary/view')}">{t}Create new glossary term{/t}</a></li>
-		<li {if $method eq 'import'}class="on"{/if}><a href="{$html->url('/glossary/import')}">{t}Import many glossary terms{/t}</a></li>
-		{/if}
-	</ul>
 
-{$view->element("export")}
+    {$view->element('export')}
 
-{if (!empty($method)) && $method eq "index"}
+    {* Publications' tree *}
+    {if (!empty($method) && $method == 'index')}
+    <div class="insidecol publishingtree">
+        {$view->element('tree')}
+    </div>
+    {/if}
 
-		<div class="insidecol publishingtree">
-			
-			{$view->element("tree")}
-		
-		</div>
+    {$view->element('previews')}
 
-{/if}
-
-{$view->element("previews")}
-
-{$view->element("user_module_perms")}
-
+    {$view->element('user_module_perms')}
 </div>
