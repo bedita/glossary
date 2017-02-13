@@ -1,6 +1,6 @@
 DROP TABLE IF EXISTS `definition_terms`;
 
-CREATE TABLE `definition_terms` IF NOT EXISTS (
+CREATE TABLE IF NOT EXISTS `definition_terms` (
   `id` INTEGER UNSIGNED NOT NULL,
   `semantic_equivalent` VARCHAR(255) NULL DEFAULT NULL COMMENT 'Semantic equivalent',
   PRIMARY KEY(`id`),
