@@ -20,6 +20,8 @@
 
 <div class="main">
     <form name="import" action="{$html->url('/glossary/importSave')}" method="post" enctype="multipart/form-data">
+        {$beForm->csrf()}
+
         <label>
             {t}Source file{/t}:
             <input type="file" name="source" />
