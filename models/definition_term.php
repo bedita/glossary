@@ -87,6 +87,7 @@ class DefinitionTerm extends BEAppObjectModel {
 			));
 		}
 
+        $definitionTerm = Set::extract('/BEObject/.', $definitionTerm);
 		return $definitionTerm;
 	}
 }
