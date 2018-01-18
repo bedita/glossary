@@ -28,4 +28,10 @@ $config['objRelationType'] = array(
         'inverse' => 'in_definition_group',
         'inverseLabel' => 'in definition group',
     ),
+    'is_equivalent_to' => array(
+        'hidden' => false,
+        'label' => 'is equivalent to',
+        'left'   => array('definition_term'),
+        'right'  => array('definition_term'),
+    ),
 );
