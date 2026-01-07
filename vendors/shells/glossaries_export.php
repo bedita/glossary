@@ -69,6 +69,13 @@ class GlossariesExportShell extends BeditaBaseShell
     ];
 
     /**
+     * Cache for terms titles.
+     *
+     * @var array
+     */
+    protected $termsTitlesCache = [];
+
+    /**
      * ZipArchive instance.
      *
      * @var ZipArchive|null
@@ -254,6 +261,9 @@ class GlossariesExportShell extends BeditaBaseShell
         // Remove newlines and trim
         $cleaned = trim(str_replace(["\r", "\r\n", "\n"], '', $val));
 
+        // replace ’ with '
+        $cleaned = str_replace('’', "'", $cleaned);
+
         // Additional escaping for CSV safety - escape double quotes by doubling them
         return str_replace('"', '""', $cleaned);
     }
@@ -425,7 +435,10 @@ class GlossariesExportShell extends BeditaBaseShell
                 'DefinitionTerm.id' => $termsIds,
             ],
             'contain' => [
-                'BEObject' => ['Category'],
+                'BEObject' => [
+                    'Category',
+                    'RelatedObject.switch = "is_equivalent_to"',
+                ],
             ],
         ]);
         // map terms by ID to preserve order
@@ -435,6 +448,7 @@ class GlossariesExportShell extends BeditaBaseShell
         }
 
         $terms = [];
+        $this->fillTermsTitlesCache($termsMap, $termsIds);
         foreach ($termsIds as $termId) {
             $item = $termsMap[$termId];
             $terms[] = [
@@ -447,6 +461,7 @@ class GlossariesExportShell extends BeditaBaseShell
                 'title' => self::cf($item['title']),
                 'description' => self::cf($item['description']),
                 'categories' => implode(',', (array)Set::classicExtract($item, 'Category.{n}.label')),
+                'equivalents' => $this->termsTitles((array)Set::classicExtract($item, 'RelatedObject.{n}.object_id')),
             ];
             $this->map['counters']['terms']++;
         }
@@ -824,5 +839,61 @@ class GlossariesExportShell extends BeditaBaseShell
         }, $permissions);
 
         return sprintf("%s", '[' . implode(',', $permissions) . ']');
+    }
+
+    /**
+     * Process equivalents to fill terms titles cache.
+     *
+     * @param array $termsMap The map of terms
+     * @param array $termsIds The term IDs
+     * @return void
+     */
+    private function fillTermsTitlesCache(array &$termsMap, array $termsIds)
+    {
+        $equivalentsIds = [];
+        foreach ($termsIds as $termId) {
+            $item = $termsMap[$termId];
+            $related = $item['RelatedObject'];
+            foreach ($related as $rel) {
+                $equivId = $rel['object_id'];
+                if (!array_key_exists($equivId, $termsMap) && !in_array($equivId, $equivalentsIds)) {
+                    $equivalentsIds[] = $equivId;
+                }
+            }
+        }
+        if (empty($equivalentsIds)) {
+            return;
+        }
+        $res = $this->BEObject->find('list', [
+            'fields' => ['id', 'title'],
+            'conditions' => [
+                'object_type_id' => Configure::read('objectTypes.definition_term.id'),
+                'id' => $equivalentsIds,
+            ],
+        ]);
+        foreach ($res as $id => $title) {
+            $this->termsTitlesCache[$id] = self::cf($title);
+        }
+    }
+
+    /**
+     * Get titles of terms by their IDs.
+     *
+     * @param array $ids The term IDs
+     * @return string Comma-separated titles
+     */
+    private function termsTitles(array $ids)
+    {
+        if (empty($ids)) {
+            return '';
+        }
+        $titles = [];
+        foreach ($ids as $id) {
+            $titles[] = $this->termsTitlesCache[$id];
+        }
+        $res = implode(',', $titles);
+        $res = str_replace(', ', ',', $res);
+
+        return $res;
     }
 }
