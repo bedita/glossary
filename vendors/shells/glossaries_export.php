@@ -891,8 +891,7 @@ class GlossariesExportShell extends BeditaBaseShell
         foreach ($ids as $id) {
             $titles[] = $this->termsTitlesCache[$id];
         }
-        $res = implode(',', $titles);
-        $res = str_replace(', ', ',', $res);
+        $res = implode(', ', $titles);
 
         return $res;
     }
