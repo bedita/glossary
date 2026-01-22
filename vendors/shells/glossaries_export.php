@@ -195,7 +195,14 @@ class GlossariesExportShell extends BeditaBaseShell
                     $attachIds = $this->processAttachments($relatedAttachments);
                     $row['attach_ids'] = implode(',', $attachIds);
                 }
-                $this->terms($glossaryId);
+                $terms = $this->terms($glossaryId);
+
+                // set glossary lang to first term lang if different
+                $firstTermLang = Set::classicExtract($terms, '0.lang');
+                if ($firstTermLang !== $row['lang']) {
+                    $row['lang'] = $firstTermLang;
+                }
+
                 $this->fillCsv('glossaries', $row, $firstRow);
                 $firstRow = false;
                 $this->map['counters']['glossaries']++;
@@ -399,7 +406,7 @@ class GlossariesExportShell extends BeditaBaseShell
      * Fetch terms for a given object ID.
      *
      * @param string $objectId The object ID
-     * @return string JSON encoded array of terms
+     * @return array array of terms
      */
     public function terms($objectId)
     {
@@ -475,7 +482,7 @@ class GlossariesExportShell extends BeditaBaseShell
             );
         }
         if (empty($termsIds)) {
-            return json_encode($terms, JSON_HEX_QUOT);
+            return $terms;
         }
         // fetch poster images for terms
         $posters = $this->fetchPosterStreams($termsIds);
@@ -527,7 +534,7 @@ class GlossariesExportShell extends BeditaBaseShell
             );
         }
 
-        return json_encode($terms, JSON_HEX_QUOT);
+        return $terms;
     }
 
     /**
