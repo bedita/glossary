@@ -62,6 +62,7 @@ class GlossariesExportShell extends BeditaBaseShell
         'limits' => [
             'glossaries' => 500,
         ],
+        'fromId' => null,
         'paths' => [
             'media' => '/tmp/glossaries-export-media',
         ],
@@ -83,6 +84,13 @@ class GlossariesExportShell extends BeditaBaseShell
     protected $zip = null;
 
     /**
+     * Keep the property id for custom prop kaltura_entry_id for audio objects.
+     *
+     * @var int|null
+     */
+    protected $kalturaAudioPropertyId = null;
+
+    /**
      * Display help.
      *
      * @return void
@@ -91,7 +99,7 @@ class GlossariesExportShell extends BeditaBaseShell
     {
         $this->out('Export glossaries, related definition groups and terms into a zip file');
         $this->out(' ');
-        $this->out('  glossaries_export [--id | -i <id>] [--limit | -l <number>] [--verbose | -v]');
+        $this->out('  glossaries_export [--id | -i <id>] [--from | -f <id>] [--limit | -l <number>] [--verbose | -v]');
         $this->out(' ');
         $this->out('  Arguments:');
         $this->out('    help \t show this help');
@@ -99,6 +107,7 @@ class GlossariesExportShell extends BeditaBaseShell
         $this->out('  Options:');
         $this->out("    --help | -h show this help");
         $this->out("    --id | -i <id> export only the glossary with the given ID");
+        $this->out("    --from | -f <id> export glossaries starting from the given ID; it works when --id is not set");
         $this->out("    --limit | -l <number> limit the number of glossaries to export, default is 500");
         $this->out("    --verbose | -v verbose mode");
         $this->out(' ');
@@ -126,14 +135,24 @@ class GlossariesExportShell extends BeditaBaseShell
         } elseif (in_array('-id', $paramsKeys)) {
             $glossaryId = (int)$this->params['-id'];
         }
+
+        if (in_array('f', $paramsKeys)) {
+            $this->map['fromId'] = (int)$this->params['f'];
+        } elseif (in_array('-from', $paramsKeys)) {
+            $this->map['fromId'] = (int)$this->params['-from'];
+        }
+
         if (!empty($glossaryId)) {
             $this->out(sprintf('Exporting only glossary with ID: %d', $glossaryId));
+        } elseif (!empty($this->map['fromId'])) {
+            $this->out(sprintf('Exporting glossaries starting from ID: %d', $this->map['fromId']));
         }
         $this->hr();
         $this->out();
         $this->out('Starting export...');
         $this->hr();
         try {
+            $this->kalturaAudioPropertyId = $this->getKalturaAudioPropertyId();
             $this->map['paths']['media'] = '/tmp/glossaries-export-media-' . date('Ymd-His');
             $this->map['filenames']['zip'] = sprintf('glossaries-%s-export.zip', date('Ymd-His'));
             $this->map['filepointers']['media'] = fopen($this->map['filenames']['media'], 'w');
@@ -157,8 +176,14 @@ class GlossariesExportShell extends BeditaBaseShell
             foreach ($attachments as $item) {
                 $attachmentsMap[$item['RelatedObject']['id']][] = $item;
             }
+
+            $firstGlossaryIdProcessed  = null;
+            $lastGlossaryIdProcessed = null;
             foreach ($glossaries as $item) {
                 $glossaryId = $item['id'];
+                if (empty($firstGlossaryIdProcessed)) {
+                    $firstGlossaryIdProcessed = $glossaryId;
+                }
                 if ($this->map['verbose']) {
                     $prefix = sprintf('(%d/%d)', $this->map['counters']['glossaries'] + 1, count($glossaries));
                     $this->out(
@@ -206,6 +231,7 @@ class GlossariesExportShell extends BeditaBaseShell
                 $this->fillCsv('glossaries', $row, $firstRow);
                 $firstRow = false;
                 $this->map['counters']['glossaries']++;
+                $lastGlossaryIdProcessed = $glossaryId;
             }
             $firstRow = true;
             if ($this->map['verbose']) {
@@ -230,6 +256,8 @@ class GlossariesExportShell extends BeditaBaseShell
         $this->hr();
         $this->out('Summary');
         $this->out();
+        $this->out(sprintf('First glossary ID processed: %s', $firstGlossaryIdProcessed));
+        $this->out(sprintf('Last glossary ID processed: %s', $lastGlossaryIdProcessed));
         $this->out(sprintf('Glossaries: %s', $this->map['counters']['glossaries']));
         $this->out(sprintf('Terms: %s', $this->map['counters']['terms']));
         $this->out(
@@ -286,8 +314,8 @@ class GlossariesExportShell extends BeditaBaseShell
         $keys = array_keys($this->params);
         if (in_array('-limit', $keys)) {
             $limit = (int)$this->params['-limit'];
-        } elseif (in_array('-l', $keys)) {
-            $limit = (int)$this->params['-l'];
+        } elseif (in_array('l', $keys)) {
+            $limit = (int)$this->params['l'];
         }
         $this->map['limits']['glossaries'] = $limit;
 
@@ -306,6 +334,8 @@ class GlossariesExportShell extends BeditaBaseShell
         $conditions = ['object_type_id' => $objectTypeId];
         if (!empty($glossaryId)) {
             $conditions['DefinitionGroup.id'] = $glossaryId;
+        } elseif (!empty($this->map['fromId'])) {
+            $conditions['DefinitionGroup.id >='] = $this->map['fromId'];
         }
 
         return $this->DefinitionGroup->find('all', [
@@ -314,6 +344,7 @@ class GlossariesExportShell extends BeditaBaseShell
             'contain' => [
                 'BEObject' => ['ObjectProperty'],
             ],
+            'order' => 'DefinitionGroup.id ASC',
         ]);
     }
 
@@ -365,10 +396,13 @@ class GlossariesExportShell extends BeditaBaseShell
         }
         $providerUrl = null;
         $provider = null;
-        $videoUuid = null;
+        $providerUid = null;
         if (!empty($data['Video']['provider'])) {
             $provider = $data['Video']['provider'];
-            $videoUuid = $data['Video']['video_uid'];
+            $providerUid = $data['Video']['video_uid'];
+        } elseif (!empty($data['ObjectProperty']['provider_uid'])) {
+            $provider = 'kaltura';
+            $providerUid = $data['ObjectProperty']['provider_uid'];
         } else {
             $uri = $data['Stream']['uri'];
             $providerUrl = sprintf('%s%s', $this->map['baseUrl'], str_replace('//', '/', $uri));
@@ -382,9 +416,11 @@ class GlossariesExportShell extends BeditaBaseShell
             'description' => self::cf($data['Object']['description']),
             'lang' => $data['Object']['lang'],
             'nickname' => $data['Object']['nickname'],
+            'status' => $data['Object']['status'],
             'provider_url' => $providerUrl,
             'provider' => $provider,
-            'video_uid' => $videoUuid,
+            'provider_uid' => $providerUid,
+            'object_type' => Configure::read(sprintf('objectTypes.%s.name', $data['Object']['object_type_id'])),
         ];
         $this->fillCsv('media', $mediaRow, $this->map['csv']['firstRowMedia']);
         $this->map['csv']['firstRowMedia'] = false;
@@ -564,12 +600,15 @@ class GlossariesExportShell extends BeditaBaseShell
                 'Object.title',
                 'Object.description',
                 'Object.lang',
+                'Object.status',
+                'Object.object_type_id',
                 'Stream.uri',
                 'Stream.name',
                 'Stream.mime_type',
                 'Stream.file_size',
                 'Stream.hash_file',
                 'Stream.original_name',
+                'ObjectProperty.property_value as provider_uid',
             ],
             'conditions' => [
                 'Stream.mime_type LIKE' => 'audio%',
@@ -595,6 +634,15 @@ class GlossariesExportShell extends BeditaBaseShell
                         'Object.status' => 'on',
                     ],
                 ],
+                [
+                    'table' => 'object_properties',
+                    'alias' => 'ObjectProperty',
+                    'type' => 'LEFT',
+                    'conditions' => [
+                        'ObjectProperty.object_id = Object.id',
+                        'ObjectProperty.property_id' => $this->kalturaAudioPropertyId,
+                    ],
+                ],
             ],
             'order' => [
                 'RelatedObject.id',
@@ -616,6 +664,8 @@ class GlossariesExportShell extends BeditaBaseShell
                 'Object.title',
                 'Object.description',
                 'Object.lang',
+                'Object.status',
+                'Object.object_type_id',
                 'Stream.uri',
                 'Stream.name',
                 'Stream.mime_type',
@@ -668,6 +718,8 @@ class GlossariesExportShell extends BeditaBaseShell
                 'Object.title',
                 'Object.description',
                 'Object.lang',
+                'Object.status',
+                'Object.object_type_id',
                 'Stream.uri',
                 'Stream.name',
                 'Stream.mime_type',
@@ -736,6 +788,8 @@ class GlossariesExportShell extends BeditaBaseShell
                 'Object.title',
                 'Object.description',
                 'Object.lang',
+                'Object.status',
+                'Object.object_type_id',
                 'Stream.uri',
                 'Stream.name',
                 'Stream.mime_type',
@@ -901,5 +955,15 @@ class GlossariesExportShell extends BeditaBaseShell
         $res = implode(', ', $titles);
 
         return $res;
+    }
+
+    /**
+     * Retrieve property id for custom prop kaltura_entry_id for audio objects.
+     *
+     * @return void
+     */
+    private function getKalturaAudioPropertyId()
+    {
+        return ClassRegistry::init('Property')->propertyId('kaltura_entry_id', Configure::read('objectTypes.audio.id'));
     }
 }
