@@ -509,6 +509,18 @@ class GlossariesExportShell extends BeditaBaseShell
             ],
         ]);
 
+        $allEquivalentsIds = [];
+        foreach ($resTerms as $item) {
+            $related = $item['RelatedObject'];
+            foreach ($related as $rel) {
+                if ($rel['switch'] === 'is_equivalent_to') {
+                    $allEquivalentsIds[] = $rel['object_id'];
+                }
+            }
+        }
+        $allEquivalentsIds = array_unique($allEquivalentsIds);
+        $postersEquivalents = !empty($allEquivalentsIds) ? $this->fetchPosterStreams($allEquivalentsIds) : [];
+
         // map terms by ID to preserve order
         $termsMap = [];
         foreach ($resTerms as $item) {
@@ -581,9 +593,27 @@ class GlossariesExportShell extends BeditaBaseShell
             $poster = array_filter($posters, function ($item) use ($term) {
                 return $item['RelatedObject'][0]['object_id'] === $term['id'];
             });
+
+            // search in semantic equivalents if no poster found for the term
+            if (empty($poster)) {
+                $related = $termsMap[$term['id']]['RelatedObject'];
+                $equivalentsIds = [];
+                foreach ($related as $rel) {
+                    if ($rel['switch'] === 'is_equivalent_to') {
+                        $equivalentsIds[] = $rel['object_id'];
+                    }
+                }
+                $poster = array_filter($postersEquivalents, function ($item) use ($equivalentsIds) {
+                    return in_array($item['RelatedObject'][0]['object_id'], $equivalentsIds);
+                });
+            }
+
             if (!empty($poster)) {
                 $poster = reset($poster);
                 $this->processPoster($poster);
+                if (empty($term['poster_id'])) {
+                    $term['poster_id'] = $poster['id'];
+                }
                 $counterPoster++;
                 $this->map['counters']['posters']++;
             }
