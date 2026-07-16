@@ -21,7 +21,14 @@ class GlossariesExportShell extends BeditaBaseShell
      *
      * @var array
      */
-    public $uses = ['BEObject', 'DefinitionGroup', 'DefinitionTerm'];
+    public $uses = [
+        'BEObject',
+        'DefinitionGroup',
+        'DefinitionTerm',
+        'Video',
+        'Audio',
+        'Image',
+    ];
 
     /**
      * Map of paths, filenames, file pointers, etc..
@@ -166,15 +173,15 @@ class GlossariesExportShell extends BeditaBaseShell
             $streams = $this->fetchPosterStreams($glossariesIds);
             $streamsMap = [];
             foreach ($streams as $item) {
-                if (empty($item['Stream']['uri'])) {
+                if (empty($item['uri'])) {
                     continue;
                 }
-                $streamsMap[$item['RelatedObject']['id']][] = $item;
+                $streamsMap[$item['RelatedObject'][0]['object_id']][]= $item;
             }
             $attachments = $this->fetchAttachments($glossariesIds);
             $attachmentsMap = [];
             foreach ($attachments as $item) {
-                $attachmentsMap[$item['RelatedObject']['id']][] = $item;
+                $attachmentsMap['RelatedObject'][0]['object_id'][] = $item;
             }
 
             $firstGlossaryIdProcessed  = null;
@@ -389,49 +396,64 @@ class GlossariesExportShell extends BeditaBaseShell
                 sprintf(
                     '. Processing %s ID %s (%s)',
                     $relation,
-                    $data['RelatedObject']['object_id'],
-                    $data['Stream']['name']
+                    $data['id'],
+                    $data['name']
                 )
             );
         }
         $providerUrl = null;
         $provider = null;
         $providerUid = null;
-        if (!empty($data['Video']['provider'])) {
-            $provider = $data['Video']['provider'];
-            $providerUid = $data['Video']['video_uid'];
-        } elseif (!empty($data['ObjectProperty']['provider_uid'])) {
+        if (!empty($data['provider'])) {
+            $provider = $data['provider'];
+            $providerUid = $data['video_uid'];
+        } elseif (!empty($data['provider_uid'])) {
             $provider = 'kaltura';
-            $providerUid = $data['ObjectProperty']['provider_uid'];
+            $providerUid = $data['provider_uid'];
         } else {
-            $uri = $data['Stream']['uri'];
+            $uri = $data['uri'];
             $providerUrl = sprintf('%s%s', $this->map['baseUrl'], str_replace('//', '/', $uri));
             if (strpos($uri, 'http://') === 0 || strpos($uri, 'https://') === 0) {
                 $providerUrl = $uri;
             }
         }
+
+        $mediaTranslations = [];
+        if (!empty($data['LangText'][$data['id']])) {
+            $translations = array_keys($data['LangText'][$data['id']]);
+            foreach ($translations as $l) {
+                $mediaTranslations[] = [
+                    'title' => self::cf(Set::classicExtract($data, "LangText.title.$l")),
+                    'description' => self::cf(Set::classicExtract($data, "LangText.description.$l")),
+                    'lang' => $l,
+                ];
+            }
+        }
+
         $mediaRow = [
-            'id' => $data['RelatedObject']['object_id'],
-            'title' => self::cf($data['Object']['title']),
-            'description' => self::cf($data['Object']['description']),
-            'lang' => $data['Object']['lang'],
-            'nickname' => $data['Object']['nickname'],
-            'status' => $data['Object']['status'],
+            'id' => $data['id'],
+            'title' => self::cf($data['title']),
+            'description' => self::cf($data['description']),
+            'lang' => $data['lang'],
+            'nickname' => $data['nickname'],
+            'status' => $data['status'],
             'provider_url' => $providerUrl,
             'provider' => $provider,
             'provider_uid' => $providerUid,
-            'object_type' => Configure::read(sprintf('objectTypes.%s.name', $data['Object']['object_type_id'])),
+            'object_type' => Configure::read(sprintf('objectTypes.%s.name', $data['object_type_id'])),
+            'translations' => json_encode($mediaTranslations, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
+
         $this->fillCsv('media', $mediaRow, $this->map['csv']['firstRowMedia']);
         $this->map['csv']['firstRowMedia'] = false;
         $this->map['counters']['media']++;
-        if (!empty($data['Video']['provider'])) {
+        if (!empty($data['provider'])) {
             $this->map['counters']['videos']++;
-        } elseif (strpos($data['Stream']['mime_type'], 'image/') === 0) {
+        } elseif (strpos($data['mime_type'], 'image/') === 0) {
             $this->map['counters']['images']++;
-        } elseif (strpos($data['Stream']['mime_type'], 'audio/') === 0) {
+        } elseif (strpos($data['mime_type'], 'audio/') === 0) {
             $this->map['counters']['audios']++;
-        } elseif (strpos($data['Stream']['mime_type'], 'video/') === 0) {
+        } elseif (strpos($data['mime_type'], 'video/') === 0) {
             $this->map['counters']['videos']++;
         }
 
@@ -480,10 +502,13 @@ class GlossariesExportShell extends BeditaBaseShell
             'contain' => [
                 'BEObject' => [
                     'Category',
-                    'RelatedObject.switch = "is_equivalent_to"',
+                    'RelatedObject' => [
+                        'conditions' => ['RelatedObject.switch' => ['is_equivalent_to', 'attach', 'poster']],
+                    ],
                 ],
             ],
         ]);
+
         // map terms by ID to preserve order
         $termsMap = [];
         foreach ($resTerms as $item) {
@@ -494,17 +519,33 @@ class GlossariesExportShell extends BeditaBaseShell
         $this->fillTermsTitlesCache($termsMap, $termsIds);
         foreach ($termsIds as $termId) {
             $item = $termsMap[$termId];
+            $relatedIsEquivalentTo = array_filter($item['RelatedObject'], function ($i) {
+                return $i['switch'] === 'is_equivalent_to';
+            });
+            usort($item['RelatedObject'], function ($a, $b) {
+                return $a['priority'] - $b['priority'];
+            });
+            $relatedAttach = array_filter($item['RelatedObject'], function ($i) {
+                return $i['switch'] === 'attach';
+            });
+            usort($relatedAttach, function ($a, $b) {
+                return $a['priority'] - $b['priority'];
+            });
+            $relatedPoster = array_filter($item['RelatedObject'], function ($i) {
+                return $i['switch'] === 'poster';
+            });
+            
             $terms[] = [
                 'id' => $item['id'],
                 'nickname' => $item['nickname'],
                 'lang' => $item['lang'],
                 'glossary_id' => $objectId,
-                'poster_id' => null,
-                'attach_ids' => null,
+                'poster_id' => !empty($relatedPoster[0]['object_id']) ? $relatedPoster[0]['object_id'] : '',
+                'attach_ids' => implode(',', (array)Set::classicExtract($relatedAttach, '{n}.object_id')),
                 'title' => self::cf($item['title']),
                 'description' => self::cf($item['description']),
                 'categories' => implode(',', (array)Set::classicExtract($item, 'Category.{n}.label')),
-                'equivalents' => $this->termsTitles((array)Set::classicExtract($item, 'RelatedObject.{n}.object_id')),
+                'equivalents' => $this->termsTitles((array)Set::classicExtract($relatedIsEquivalentTo, '{n}.object_id')),
             ];
             $this->map['counters']['terms']++;
         }
@@ -538,20 +579,21 @@ class GlossariesExportShell extends BeditaBaseShell
         $counterAttachments = 0;
         foreach ($terms as $term) {
             $poster = array_filter($posters, function ($item) use ($term) {
-                return $item['RelatedObject']['id'] === $term['id'];
+                return $item['RelatedObject'][0]['object_id'] === $term['id'];
             });
             if (!empty($poster)) {
                 $poster = reset($poster);
-                $term['poster_id'] = $this->processPoster($poster);
+                $this->processPoster($poster);
                 $counterPoster++;
                 $this->map['counters']['posters']++;
             }
             $termAttachments = array_filter($attachments, function ($item) use ($term) {
-                return $item['RelatedObject']['id'] === $term['id'];
+                $termIds = Set::classicExtract($item, 'RelatedObject.{n}.object_id');
+
+                return in_array($term['id'], $termIds);
             });
             if (!empty($termAttachments)) {
-                $attachIds = $this->processAttachments($termAttachments);
-                $term['attach_ids'] = implode(',', $attachIds);
+                $this->processAttachments($termAttachments);
                 $counterAttachments += count($termAttachments);
                 $this->map['counters']['attachments'] += count($termAttachments);
             }
@@ -590,182 +632,95 @@ class GlossariesExportShell extends BeditaBaseShell
 
     protected function fetchAudioAttachments($ids)
     {
-        $Streams = ClassRegistry::init('Stream');
-
-        return $Streams->find('all', [
-            'fields' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'Object.nickname',
-                'Object.title',
-                'Object.description',
-                'Object.lang',
-                'Object.status',
-                'Object.object_type_id',
-                'Stream.uri',
-                'Stream.name',
-                'Stream.mime_type',
-                'Stream.file_size',
-                'Stream.hash_file',
-                'Stream.original_name',
-                'ObjectProperty.property_value as provider_uid',
+        return $this->Audio->find('all', [
+            'contain' => [
+                'BEObject' => [
+                    'RelatedObject' => [
+                        'conditions' => [
+                            'RelatedObject.switch' => 'attached_to',
+                        ],
+                    ],
+                    'LangText',
+                ],
             ],
-            'conditions' => [
-                'Stream.mime_type LIKE' => 'audio%',
-            ],
-            'contain' => [],
-            'joins' => [
+            'joins' => [ // used to force inner join on relation
                 [
                     'table' => 'object_relations',
-                    'alias' => 'RelatedObject',
+                    'alias' => 'RelObj',
                     'type' => 'INNER',
                     'conditions' => [
-                        'RelatedObject.object_id = Stream.id',
-                        'RelatedObject.switch' => 'attach',
-                        sprintf('RelatedObject.id IN (%s)', implode(',', $ids)),
-                    ],
-                ],
-                [
-                    'table' => 'objects',
-                    'alias' => 'Object',
-                    'type' => 'INNER',
-                    'conditions' => [
-                        'Object.id = Stream.id',
-                        'Object.status' => 'on',
-                    ],
-                ],
-                [
-                    'table' => 'object_properties',
-                    'alias' => 'ObjectProperty',
-                    'type' => 'LEFT',
-                    'conditions' => [
-                        'ObjectProperty.object_id = Object.id',
-                        'ObjectProperty.property_id' => $this->kalturaAudioPropertyId,
+                        'RelObj.id = Audio.id',
+                        'RelObj.switch' => 'attached_to',
+                        sprintf('RelObj.object_id IN (%s)', implode(',', $ids)),
                     ],
                 ],
             ],
-            'order' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'RelatedObject.priority ASC',
+            'conditions' => [
+                'BEObject.object_type_id' => Configure::read('objectTypes.audio.id'),
             ],
         ]);
     }
 
     protected function fetchImageAttachments($ids)
     {
-        $Streams = ClassRegistry::init('Stream');
-
-        return $Streams->find('all', [
-            'fields' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'Object.nickname',
-                'Object.title',
-                'Object.description',
-                'Object.lang',
-                'Object.status',
-                'Object.object_type_id',
-                'Stream.uri',
-                'Stream.name',
-                'Stream.mime_type',
-                'Stream.file_size',
-                'Stream.hash_file',
-                'Stream.original_name',
+        return $this->Image->find('all', [
+            'contain' => [
+                'BEObject' => [
+                    'RelatedObject' => [
+                        'conditions' => [
+                            'RelatedObject.switch' => 'attached_to',
+                        ],
+                    ],
+                    'LangText',
+                ],
+                'Stream',
             ],
-            'conditions' => [
-                'Stream.mime_type LIKE' => 'image%',
-            ],
-            'contain' => [],
-            'joins' => [
+            'joins' => [ // used to force inner join on relation
                 [
                     'table' => 'object_relations',
-                    'alias' => 'RelatedObject',
+                    'alias' => 'RelObj',
                     'type' => 'INNER',
                     'conditions' => [
-                        'RelatedObject.object_id = Stream.id',
-                        'RelatedObject.switch' => 'attach',
-                        sprintf('RelatedObject.id IN (%s)', implode(',', $ids)),
-                    ],
-                ],
-                [
-                    'table' => 'objects',
-                    'alias' => 'Object',
-                    'type' => 'INNER',
-                    'conditions' => [
-                        'Object.id = Stream.id',
-                        'Object.status' => 'on',
+                        'RelObj.id = Image.id',
+                        'RelObj.switch' => 'attached_to',
+                        sprintf('RelObj.object_id IN (%s)', implode(',', $ids)),
                     ],
                 ],
             ],
-            'order' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'RelatedObject.priority ASC',
+            'conditions' => [
+                'BEObject.object_type_id' => Configure::read('objectTypes.image.id'),
             ],
         ]);
     }
 
     protected function fetchVideoAttachments($ids)
     {
-        $Streams = ClassRegistry::init('Stream');
-
-        return $Streams->find('all', [
-            'fields' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'Object.nickname',
-                'Object.title',
-                'Object.description',
-                'Object.lang',
-                'Object.status',
-                'Object.object_type_id',
-                'Stream.uri',
-                'Stream.name',
-                'Stream.mime_type',
-                'Stream.file_size',
-                'Stream.hash_file',
-                'Stream.original_name',
-                'Video.provider',
-                'Video.video_uid',
+        return $this->Video->find('all', [
+            'contain' => [
+                'BEObject' => [
+                    'RelatedObject' => [
+                        'conditions' => [
+                            'RelatedObject.switch' => 'attached_to',
+                        ],
+                    ],
+                    'LangText',
+                ],
+                'Stream',
             ],
-            'conditions' => [
-                'Stream.mime_type LIKE' => 'video%',
-            ],
-            'contain' => [],
-            'joins' => [
+            'joins' => [ // used to force inner join on relation
                 [
                     'table' => 'object_relations',
-                    'alias' => 'RelatedObject',
+                    'alias' => 'RelObj',
                     'type' => 'INNER',
                     'conditions' => [
-                        'RelatedObject.object_id = Stream.id',
-                        'RelatedObject.switch' => 'attach',
-                        sprintf('RelatedObject.id IN (%s)', implode(',', $ids)),
-                    ],
-                ],
-                [
-                    'table' => 'objects',
-                    'alias' => 'Object',
-                    'type' => 'INNER',
-                    'conditions' => [
-                        'Object.id = Stream.id',
-                        'Object.status' => 'on',
-                    ],
-                ],
-                [
-                    'table' => 'videos',
-                    'alias' => 'Video',
-                    'type' => 'INNER',
-                    'conditions' => [
-                        'Video.id = Stream.id',
+                        'RelObj.id = Video.id',
+                        'RelObj.switch' => 'attached_to',
+                        sprintf('RelObj.object_id IN (%s)', implode(',', $ids)),
                     ],
                 ],
             ],
-            'order' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'RelatedObject.priority ASC',
+            'conditions' => [
+                'BEObject.object_type_id' => Configure::read('objectTypes.video.id'),
             ],
         ]);
     }
@@ -778,61 +733,32 @@ class GlossariesExportShell extends BeditaBaseShell
      */
     protected function fetchPosterStreams($ids)
     {
-        $Stream = ClassRegistry::init('Stream');
-
-        return $Stream->find('all', [
-            'fields' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'Object.nickname',
-                'Object.title',
-                'Object.description',
-                'Object.lang',
-                'Object.status',
-                'Object.object_type_id',
-                'Stream.uri',
-                'Stream.name',
-                'Stream.mime_type',
-                'Stream.file_size',
-                'Stream.hash_file',
-                'Stream.original_name',
-                'Video.provider',
-                'Video.video_uid',
+        return $this->Image->find('all', [
+            'contain' => [
+                'BEObject' => [
+                    'RelatedObject' => [
+                        'conditions' => [
+                            'RelatedObject.switch' => 'poster_of',
+                        ],
+                    ],
+                    'LangText',
+                ],
+                'Stream',
             ],
-            'contain' => [],
-            'joins' => [
+            'joins' => [ // used to force inner join on relation
                 [
                     'table' => 'object_relations',
-                    'alias' => 'RelatedObject',
+                    'alias' => 'RelObj',
                     'type' => 'INNER',
                     'conditions' => [
-                        'RelatedObject.object_id = Stream.id',
-                        'RelatedObject.switch' => 'poster',
-                        sprintf('RelatedObject.id IN (%s)', implode(',', $ids)),
-                    ],
-                ],
-                [
-                    'table' => 'objects',
-                    'alias' => 'Object',
-                    'type' => 'INNER',
-                    'conditions' => [
-                        'Object.id = Stream.id',
-                        'Object.status' => 'on',
-                    ],
-                ],
-                [
-                    'table' => 'videos',
-                    'alias' => 'Video',
-                    'type' => 'LEFT',
-                    'conditions' => [
-                        'Video.id = Stream.id',
+                        'RelObj.id = Image.id',
+                        'RelObj.switch' => 'poster_of',
+                        sprintf('RelObj.object_id IN (%s)', implode(',', $ids)),
                     ],
                 ],
             ],
-            'order' => [
-                'RelatedObject.id',
-                'RelatedObject.object_id',
-                'RelatedObject.priority ASC',
+            'conditions' => [
+                'BEObject.object_type_id' => Configure::read('objectTypes.image.id'),
             ],
         ]);
     }
