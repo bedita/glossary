@@ -591,21 +591,29 @@ class GlossariesExportShell extends BeditaBaseShell
         $counterAttachments = 0;
         foreach ($terms as $term) {
             $poster = array_filter($posters, function ($item) use ($term) {
-                return $item['RelatedObject'][0]['object_id'] === $term['id'];
+                $termIds = Set::classicExtract($item, 'RelatedObject.{n}.object_id');
+                
+                return in_array($term['id'], $termIds);
             });
 
             // search in semantic equivalents if no poster found for the term
             if (empty($poster)) {
                 $related = $termsMap[$term['id']]['RelatedObject'];
-                $equivalentsIds = [];
                 foreach ($related as $rel) {
-                    if ($rel['switch'] === 'is_equivalent_to') {
-                        $equivalentsIds[] = $rel['object_id'];
+                    if ($rel['switch'] !== 'is_equivalent_to') {
+                        continue;
+                    }
+                    
+                    $poster = array_filter($postersEquivalents, function ($item) use ($posters, $rel) {
+                        $postersIds = Set::classicExtract($item, 'RelatedObject.{n}.object_id');
+
+                        return in_array($rel['object_id'], $postersIds);
+                    });
+
+                    if (!empty($poster)) {
+                        break;
                     }
                 }
-                $poster = array_filter($postersEquivalents, function ($item) use ($equivalentsIds) {
-                    return in_array($item['RelatedObject'][0]['object_id'], $equivalentsIds);
-                });
             }
 
             if (!empty($poster)) {
